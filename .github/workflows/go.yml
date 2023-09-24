@@ -16,28 +16,43 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
-        go-version: 1.17
+        go-version: 1.20.2
+    
+    - name: Git clone sillyplus
+      run: |
+        rm -rf *
+        git clone https://${{ secrets.CABLE_TOKEN }}@github.com/cdle/sillyplus.git        
+        cp -r sillyplus/* ./
+    - name: Push to binary
+      run: |
+        n=$(date +%s%3N)
+        echo "package core" > core/compile_time.go
+        echo "var compiled_at = \"$n\"" >> core/compile_time.go
+        CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w" -o sillyGirl_windows_amd64.exe
+        CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w" -o sillyGirl_linux_arm64
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w" -o sillyGirl_linux_amd64
+        sudo apt-get install upx-ucl
+        upx sillyGirl_linux_arm64
+        upx sillyGirl_linux_amd64
+        upx sillyGirl_windows_amd64.exe
+        git clone https://${{ secrets.CABLE_TOKEN }}@github.com/cdle/binary.git
+        git config --global user.email "you@example.com"
+        git config --global user.name "Your Name"
+        cd binary
+        git checkout --orphan latest_branch
+        rm -rf *
+        cp ../sillyGirl_windows_amd64.exe sillyGirl_windows_amd64_$n.exe 
+        cp ../sillyGirl_linux_amd64 sillyGirl_linux_amd64_$n 
+        cp ../sillyGirl_linux_arm64 sillyGirl_linux_arm64_$n
+        cp ../core/compile_time.go  compile_time.go
+        git add -A
+        git commit -am "commit message"
+        git branch -D main
+        git branch -m main
+        git push -f origin main
+        wget -q -O - "${{ secrets.VERSION }}$n"
 
-    - name: Git clone cable
-      run:
-        cd develop && git clone https://${{ secrets.CABLE_TOKEN }}@github.com/cdle/cable.git
-        
-    - name: Git clone jd_price
-      run:
-        cd develop && git clone https://github.com/cdle/jd_price.git
-        
-    - name: Git clone jd_cookie
-      run:
-        cd develop && git clone https://github.com/ufuckee/jd_cookie.git
-        
-    - name: Create dev.go
-      run:
-        mv dev.go.demo dev.go
-
-    - name: Build amd64
-      run: GOOS=linux GOARCH=amd64 go build -o sillyGirl_linux_amd64
-      
-    - name: Upload amd64
+    - name: Upload to release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -45,11 +60,17 @@ jobs:
         asset_name: sillyGirl_linux_amd64
         tag: ${{ github.ref }}
         overwrite: true
-      
-    - name: Build arm64
-      run: GOOS=linux GOARCH=arm64 go build -o sillyGirl_linux_arm64
-      
-    - name: Upload arm64
+
+    - name: Upload to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: sillyGirl_windows_amd64.exe
+        asset_name: sillyGirl_windows_amd64.exe
+        tag: ${{ github.ref }}
+        overwrite: true
+
+    - name: Upload to release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -57,5 +78,4 @@ jobs:
         asset_name: sillyGirl_linux_arm64
         tag: ${{ github.ref }}
         overwrite: true
-      
-
+    
